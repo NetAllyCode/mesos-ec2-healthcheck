@@ -12,9 +12,11 @@ import Data.Foreign.Class
 
 import Node.AWS
 
+import Unsafe.Coerce
+
 foreign import data AutoScaling :: *
 
-foreign import autoScaling :: Config -> AutoScaling
+foreign import autoScaling :: forall cfg. cfg -> AutoScaling
 
 foreign import describeAutoScalingGroups :: forall req err res eff. AutoScaling -> (err -> Eff eff Unit) -> (res -> Eff eff Unit) -> {|req} -> Eff eff Unit
 

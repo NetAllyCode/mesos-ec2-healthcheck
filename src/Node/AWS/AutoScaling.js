@@ -4,16 +4,16 @@ var aws = require('aws-sdk');
 var curry = require('curry');
 
 exports.autoScaling = function autoScaling(cfg) {
-    return new AWS.AutoScaling(cfg);
+    return new aws.AutoScaling(cfg);
 };
 
 exports.describeAutoScalingGroups = curry(function describeAutoScalingGroups(autoScaling, onError, onSuccess, req) {
     return function () {
         return autoScaling.describeAutoScalingGroups(req, function(e, r) {
             if (e) {
-                onError(e)();
+                return onError(e)();
             }
-            onSuccess(s)();
+            return onSuccess(r)();
         });
     };
 });
