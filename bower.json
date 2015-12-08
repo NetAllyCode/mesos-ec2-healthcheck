@@ -1,5 +1,5 @@
 {
-  "name": "playground",
+  "name": "mesos-ec2-healthcheck",
   "version": "1.0.0",
   "moduleType": [
     "node"
