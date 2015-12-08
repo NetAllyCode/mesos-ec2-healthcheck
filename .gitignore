@@ -36,8 +36,9 @@ node_modules
 # Purescript things
 output/
 psc.tix
+psc-docs.tix
 .pulp-cache
 .psci
 
-# Bower stuffs
+# Bower dependency directory
 bower_components
