@@ -17,3 +17,14 @@ exports.describeAutoScalingGroups = curry(function describeAutoScalingGroups(aut
         });
     };
 });
+
+exports.setInstanceHealth = curry(function setInstanceHealth(autoScaling, onError, onSuccess, req) {
+    return function () {
+        return autoScaling.setInstanceHealth(req, function (e, r) {
+            if (e) {
+                return onError(e)();
+            }
+            return onSuccess(r)();
+        });
+    };
+});

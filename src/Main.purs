@@ -73,6 +73,14 @@ instance slaveIsForeign :: IsForeign Slave where
         hostname <- readProp' "hostname"
         return $ Slave { hostname: hostname }
 
+seqCompose :: forall m a b. (Bind m) => m a -> m b -> m b
+seqCompose f s = f `bind` (const s)
+
+infixl 1 >>
+
+(>>) :: forall m a b. (Bind m) => m a -> m b -> m b
+(>>) = seqCompose
+
 realMain :: forall t eff. String -> Array String -> String -> Eff (http :: HTTP, err :: EXCEPTION, st :: ST AWS.Config, console :: CONSOLE | eff) Unit
 realMain mesosMaster groups region = do
     log $ "master:\n    " ++ mesosMaster
@@ -89,17 +97,21 @@ realMain mesosMaster groups region = do
         let instances = (mconcat <<< (map (\(EC2Reservation r) -> r.instances)) <<< (\(DescribeInstancesResponse r) -> r.reservations)) instancesResponse
         forkAff do
             liftEff $ log "instances:"
-            foldl (\a b -> a `bind` (const b)) mempty ((liftEff <<< log <<< (\(EC2Instance i) -> "    " ++ i.privateDnsName)) <$> instances)
+            foldl (>>) mempty ((liftEff <<< log <<< (\(EC2Instance i) -> "    " ++ i.privateDnsName)) <$> instances)
         let slaves = ((map (\(Slave s) -> s.hostname)) <<< (\(SlavesResponse r) -> r.slaves)) slavesR
         forkAff do
             liftEff $ log "slaves:"
-            foldl (\a b -> a `bind` (const b)) mempty ((liftEff <<< log <<< ((++) "    ")) <$> slaves)
+            foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> slaves)
         let slavesMap = foldl (\m a -> StrMap.insert a unit m) mempty slaves
         let member' = (flip StrMap.member $ slavesMap) <<< (\(EC2Instance i) -> i.privateDnsName)
         let deadInstances = filter (not member') instances
+        let deadInstanceIds = (\(EC2Instance i) -> i.instanceId) <$> deadInstances
         forkAff do
             liftEff $ log "dead instances:"
-            foldl (\a b -> a `bind` (const b)) mempty ((liftEff <<< log <<< ((++) "    ")) <<< (\(EC2Instance i) -> i.instanceId) <$> deadInstances)
+            foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> deadInstanceIds)
+        let deadInstanceReqParams = (\instanceId -> {"InstanceId": instanceId, "HealthStatus": "Unhealthy"}) <$> deadInstanceIds
+        let deadInstanceRequests = (forkAff <<< (setInstanceHealth' autoScalingClient)) <$> deadInstanceReqParams
+        foldl (>>) mempty deadInstanceRequests
     where autoScalingClient = autoScaling {region: region}
           ec2Client = ec2 {region: region}
 

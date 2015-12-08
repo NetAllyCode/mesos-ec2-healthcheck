@@ -19,6 +19,7 @@ foreign import data AutoScaling :: *
 foreign import autoScaling :: forall cfg. cfg -> AutoScaling
 
 foreign import describeAutoScalingGroups :: forall req err res eff. AutoScaling -> (err -> Eff eff Unit) -> (res -> Eff eff Unit) -> {|req} -> Eff eff Unit
+foreign import setInstanceHealth :: forall req err res eff. AutoScaling -> (err -> Eff eff Unit) -> (res -> Eff eff Unit) -> {|req} -> Eff eff Unit
 
 data DescribeAutoScalingGroupsResponse = DescribeAutoScalingGroupsResponse
     { autoScalingGroups :: Array AutoScalingGroup
@@ -56,3 +57,9 @@ describeAutoScalingGroups' autoScalingClient req = do
     case (read res) :: Either _ DescribeAutoScalingGroupsResponse of
       Left _ -> throwError $ error "Couldn't parse DescribeAutoScalingGroupsResponse"
       Right res -> return res
+
+foreign import data SetInstanceHealthResponse :: *
+
+setInstanceHealth' :: forall req eff. AutoScaling -> {|req} -> Aff eff SetInstanceHealthResponse
+setInstanceHealth' autoScalingClient req =
+    makeAff (\err success -> setInstanceHealth autoScalingClient err success req)
