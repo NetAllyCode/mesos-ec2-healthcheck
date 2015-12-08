@@ -1,0 +1,27 @@
+{
+  "name": "mesos-ec2-healthcheck",
+  "version": "1.0.0",
+  "description": "Mesos healthcheck to EC2 healthcheck connector",
+  "main": "app.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FlukeNetworks/mesos-ec2-healthcheck.git"
+  },
+  "author": "Matt Coffin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FlukeNetworks/mesos-ec2-healthcheck/issues"
+  },
+  "homepage": "https://github.com/FlukeNetworks/mesos-ec2-healthcheck#readme",
+  "dependencies": {
+    "aws-sdk": "^2.2.21",
+    "curry": "^1.2.0",
+    "yargs": "^3.31.0"
+  }
+}
