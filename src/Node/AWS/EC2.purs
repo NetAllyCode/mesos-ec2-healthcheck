@@ -16,7 +16,7 @@ import Node.AWS
 foreign import data EC2 :: *
 
 -- | Creates a new EC2 client for a given partial AWS configuration
-foreign import ec2 :: forall cfg. cfg -> EC2
+foreign import ec2 :: forall cfg. ConfigParam cfg -> EC2
 
 -- | Callback-based version of the `DescribeInstances` AWS call
 foreign import describeInstances :: forall req err res eff. EC2 -> (err -> Eff eff Unit) -> (res -> Eff eff Unit) -> {|req} -> Eff eff Unit

@@ -36,6 +36,7 @@ node_modules
 # Purescript things
 output/
 psc.tix
+psci.tix
 psc-docs.tix
 .pulp-cache
 .psci

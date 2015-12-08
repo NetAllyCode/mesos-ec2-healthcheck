@@ -6,5 +6,10 @@ import Control.Monad.ST
 -- | Foreign type for AWS configuration data
 foreign import data Config :: *
 
+type ConfigParam cfg =
+    { region :: String
+    | cfg
+    }
+
 -- | Returns the contents of the native `AWS.config` dictionary
 foreign import awsConfig :: forall eff. Eff (st :: ST Config | eff) Config

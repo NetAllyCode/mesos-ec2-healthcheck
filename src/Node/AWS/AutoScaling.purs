@@ -22,7 +22,7 @@ foreign import data AutoScaling :: *
 -- | ```purescript
 -- | autoScaling {region: "us-east-1"}
 -- | ```
-foreign import autoScaling :: forall cfg. cfg -> AutoScaling
+foreign import autoScaling :: forall cfg. ConfigParam cfg -> AutoScaling
 
 -- | Callback-based version of the `DescribeAutoScalingGroups` AWS call
 foreign import describeAutoScalingGroups :: forall req err res eff. AutoScaling -> (err -> Eff eff Unit) -> (res -> Eff eff Unit) -> {|req} -> Eff eff Unit
