@@ -81,12 +81,18 @@ infixl 1 >>
 (>>) :: forall m a b. (Bind m) => m a -> m b -> m b
 (>>) = seqCompose
 
-realMain :: forall t eff. String -> Array String -> String -> Eff (http :: HTTP, err :: EXCEPTION, st :: ST AWS.Config, console :: CONSOLE | eff) Unit
-realMain mesosMaster groups region = do
+realMain :: forall t eff. String -> Array String -> String -> Boolean -> Eff (http :: HTTP, err :: EXCEPTION, st :: ST AWS.Config, console :: CONSOLE | eff) Unit
+realMain mesosMaster groups region dryRun = do
     log $ "master:\n    " ++ mesosMaster
     log $ "groups:\n    " ++ (show groups)
     launchAff do
-        slavesResponse <- doRequest $ mesosMaster ++ "/master/slaves"
+        redirectResponse <- doRequest $ mesosMaster ++ "/master/redirect"
+        leadingMaster <- case StrMap.lookup "location" $ HTTP.responseHeaders redirectResponse of
+                           Just l -> pure l
+                           Nothing -> throwError $ error "Couldn't get the leading master"
+        let leadingMaster' = "http:" ++ leadingMaster
+        liftEff $ log $ "leading master:\n    " ++ leadingMaster'
+        slavesResponse <- doRequest $ leadingMaster' ++ "/master/slaves"
         slavesRRaw <- readResponseBody slavesResponse
         slavesR <- case (readJSON $ body slavesRRaw) :: F SlavesResponse of
                      Left _ -> throwError $ error "Couldn't parse SlavesResponse"
@@ -95,23 +101,24 @@ realMain mesosMaster groups region = do
         let instanceIds = ((map (\(AutoScalingInstance i) -> i.instanceId)) <<< mconcat <<< (map (\(AutoScalingGroup g) -> g.instances)) <<< (\(DescribeAutoScalingGroupsResponse r) -> r.autoScalingGroups)) groupsResponse
         instancesResponse <- describeInstances' ec2Client {"InstanceIds": instanceIds}
         let instances = (mconcat <<< (map (\(EC2Reservation r) -> r.instances)) <<< (\(DescribeInstancesResponse r) -> r.reservations)) instancesResponse
-        forkAff do
-            liftEff $ log "instances:"
-            foldl (>>) mempty ((liftEff <<< log <<< (\(EC2Instance i) -> "    " ++ i.privateDnsName)) <$> instances)
+        liftEff $ log "instances:"
+        foldl (>>) mempty ((liftEff <<< log <<< (\(EC2Instance i) -> "    " ++ i.privateDnsName)) <$> instances)
         let slaves = ((map (\(Slave s) -> s.hostname)) <<< (\(SlavesResponse r) -> r.slaves)) slavesR
-        forkAff do
-            liftEff $ log "slaves:"
-            foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> slaves)
+        liftEff $ log "slaves:"
+        foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> slaves)
         let slavesMap = foldl (\m a -> StrMap.insert a unit m) mempty slaves
         let member' = (flip StrMap.member $ slavesMap) <<< (\(EC2Instance i) -> i.privateDnsName)
         let deadInstances = filter (not member') instances
         let deadInstanceIds = (\(EC2Instance i) -> i.instanceId) <$> deadInstances
-        forkAff do
-            liftEff $ log "dead instances:"
-            foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> deadInstanceIds)
+        liftEff $ log "dead instances:"
+        foldl (>>) mempty ((liftEff <<< log <<< ((++) "    ")) <$> deadInstanceIds)
         let deadInstanceReqParams = (\instanceId -> {"InstanceId": instanceId, "HealthStatus": "Unhealthy"}) <$> deadInstanceIds
         let deadInstanceRequests = (forkAff <<< (setInstanceHealth' autoScalingClient)) <$> deadInstanceReqParams
-        foldl (>>) mempty deadInstanceRequests
+        case dryRun of
+          true -> mempty
+          false -> do
+              foldl (>>) mempty deadInstanceRequests
+              pure unit
     where autoScalingClient = autoScaling {region: region}
           ec2Client = ec2 {region: region}
 
@@ -120,3 +127,4 @@ main =
     runY setup $ realMain <$> yarg "m" ["master"] Nothing (Right "a master must be supplied") true
                           <*> yarg "g" ["group"] Nothing (Left mempty) true
                           <*> yarg "r" ["region"] Nothing (Left "us-east-1") true
+                          <*> flag "d" ["dry-run"] Nothing
